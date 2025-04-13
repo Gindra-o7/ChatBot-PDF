@@ -72,38 +72,7 @@ st.markdown("""
         width: 100%;
         text-align: center;
     }
-    /* Modal styling */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .modal-content {
-        background-color: white;
-        padding: 20px;
-        border-radius: 10px;
-        max-width: 800px;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-    }
-    .modal-close {
-        cursor: pointer;
-        font-size: 20px;
-    }
+    
     /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -154,8 +123,8 @@ def process_pdf(pdf_file):
         
         # Menggunakan text splitter
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=200,
+            chunk_overlap=100,
             length_function=len
         )
         chunks = text_splitter.split_text(full_text)
@@ -184,6 +153,7 @@ def get_relevant_context(query, chunks, index, top_k=3):
     
     # Mengambil chunk teks yang paling relevan
     relevant_context = "\n".join([chunks[i] for i in indices[0] if i < len(chunks)])
+    print(relevant_context)
     return relevant_context
 
 # Fungsi untuk memanggil API OpenRouter
@@ -292,13 +262,6 @@ with col1:
     # Comparator model dropdown with custom styling
     comparator_model = st.selectbox("", model_list, key="comparator", label_visibility="collapsed")
 
-# Fungsi untuk menampilkan modal perbandingan
-def show_comparison_modal():
-    st.session_state.show_comparison_modal = True
-
-def close_comparison_modal():
-    st.session_state.show_comparison_modal = False
-
 with col2:
     # Compare button with custom styling
     st.markdown('<div class="compare-button">', unsafe_allow_html=True)
@@ -334,45 +297,31 @@ if send_button:
     else:
         st.warning("Silakan masukkan pertanyaan atau prompt terlebih dahulu.")
 
-# Implementasi modal menggunakan Streamlit dialog
-if st.session_state.show_comparison_modal:
-    with st.dialog("Hasil Perbandingan", on_close=close_comparison_modal):
-        if st.session_state.response1 and st.session_state.response2:
-            # Lakukan perbandingan jika belum dilakukan
-            if not st.session_state.comparison_result:
-                with st.spinner("Membandingkan hasil..."):
-                    comparison_prompt = f"""
-                    Bandingkan dua jawaban berikut dan tentukan mana yang lebih baik:
-                    
-                    Pertanyaan: {user_prompt}
-                    
-                    Jawaban Model 1 ({model1}):
-                    {st.session_state.response1}
-                    
-                    Jawaban Model 2 ({model2}):
-                    {st.session_state.response2}
-                    
-                    Analisis kedua jawaban tersebut berdasarkan: akurasi, kejelasan, kelengkapan, dan kegunaan.
-                    Berikan penjelasan detail mengapa satu jawaban lebih baik dari yang lain.
-                    """
-                    
-                    st.session_state.comparison_result = call_openrouter_api(comparison_prompt, comparator_model)
+# Process "Compare" button logic
+if compare_button:
+    if st.session_state.response1 and st.session_state.response2:
+        with st.spinner("Membandingkan hasil..."):
+            comparison_prompt = f"""
+            Bandingkan dua jawaban berikut dan tentukan mana yang lebih baik:
             
-            # Tampilkan hasil perbandingan dalam modal
-            st.subheader(f"Hasil Analisis oleh {comparator_model}")
-            st.write(st.session_state.comparison_result)
+            Pertanyaan: {user_prompt}
             
-            # Tombol untuk menutup modal
-            if st.button("Tutup", key="close_modal"):
-                close_comparison_modal()
-        else:
-            st.warning("Silakan kirimkan pertanyaan terlebih dahulu untuk mendapatkan jawaban dari kedua model.")
-            if st.button("OK", key="close_warning"):
-                close_comparison_modal()
-
-# Reset comparison result when sending new prompt
-if send_button:
-    st.session_state.comparison_result = ""
+            Jawaban Model 1 ({model1}):
+            {st.session_state.response1}
+            
+            Jawaban Model 2 ({model2}):
+            {st.session_state.response2}
+            
+            Analisis kedua jawaban tersebut berdasarkan: akurasi, kejelasan, kelengkapan, dan kegunaan.
+            Berikan penjelasan detail mengapa satu jawaban lebih baik dari yang lain.
+            """
+            
+            comparison_result = call_openrouter_api(comparison_prompt, comparator_model)
+            
+            st.markdown("### Hasil Perbandingan")
+            st.write(comparison_result)
+    else:
+        st.warning("Silakan kirimkan pertanyaan terlebih dahulu untuk mendapatkan jawaban dari kedua model.")
 
 # Informasi tambahan
 with st.expander("Cara Menggunakan"):
